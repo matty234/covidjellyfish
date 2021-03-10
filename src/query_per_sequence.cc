@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include <jellyfish/err.hpp>
 #include <jellyfish/thread_exec.hpp>
@@ -9,14 +10,14 @@
 #include <jellyfish/whole_sequence_parser.hpp>
 #include <jellyfish/mer_dna_bloom_counter.hpp>
 #include <jellyfish/jellyfish.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include "sequence_mers.hpp"
-#include "query_parameters.hpp"
-#include <boost/iostreams/device/file_descriptor.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/filter/newline.hpp>
-#include <boost/iostreams/copy.hpp>
 
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
+#include "query_parameters.hpp"
+#include "sequence_mers.hpp"
 
 namespace err = jellyfish::err;
 namespace boostio = boost::iostreams;
@@ -31,9 +32,7 @@ const float DEFAULT_CUTOFF = 0.6;
 template <typename PathIterator, typename Database>
 void query_from_sequence(PathIterator file_begin, const Database &db, QueryParametersProvider *qpp)
 {
-
-  FILE *fp = std::fopen(qpp->getOutputFile(), "w");
-  const int fd = fileno(fp);
+  std::ofstream ofile(qpp->getOutputFile(), std::ios_base::out | std::ios_base::binary);
 
   PathIterator fbegin = file_begin;
   PathIterator fend = file_begin + 1;
@@ -46,14 +45,14 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
 
   const float cutoff = qpp->getCutoff();
 
-  boostio::file_descriptor_sink output(fd, boostio::never_close_handle);
-  boostio::filtering_streambuf<boostio::output> out;
+  boostio::filtering_ostream out;
 
-  out.push(boost::iostreams::newline_filter(boostio::newline::dos));
-  out.push(boostio::gzip_compressor(boostio::gzip_params(boostio::gzip::best_compression)));
-  out.push(output);
+  if (qpp->shouldGzip())
+  {
+    out.push(boostio::gzip_compressor(boostio::gzip_params(boostio::gzip::best_compression)));
+  }
 
-  std::ostream buffer(&out);
+  out.push(ofile);
 
   while (true)
   {
@@ -84,10 +83,10 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
 
       if (val > cutoff)
       {
-        buffer << "@" << j->data[i].header << std::endl;
-        buffer << j->data[i].seq << std::endl;
-        buffer << "+" << std::endl;
-        buffer << j->data[i].qual << std::endl;
+        out << "@" << j->data[i].header << std::endl;
+        out << j->data[i].seq << std::endl;
+        out << "+" << std::endl;
+        out << j->data[i].qual << std::endl;
       }
     }
   }
@@ -99,23 +98,29 @@ int main(int argc, char *argv[])
   float givenCutoff = DEFAULT_CUTOFF;
 
   if (argc == 4)
-    ;
+  {
+  }
   else if (argc == 5)
+  {
     givenCutoff = atof(argv[5]);
+  }
   else
+  {
     err::die(err::msg() << "Usage: " << argv[0] << " db.jf file.fa output.fa cutoff");
+  }
 
   char *outputFile(argv[3]);
-  char *inputFile(argv[3]);
+  char *inputFile(argv[1]);
+  std::string outputFilestring(outputFile);
 
   std::ifstream in(inputFile, std::ios::in | std::ios::binary);
 
   jellyfish::file_header header(in);
   if (!in.good())
-    err::die(err::msg() << "Failed to parse header of file '" << argv[1] << "'");
+    err::die(err::msg() << "Failed to parse header of file '" << argv[2] << "'" << strerror(errno));
 
   // Setup canon and cutoff
-  QueryParameters qp(header.canonical(), givenCutoff, outputFile);
+  QueryParameters qp(header.canonical(), givenCutoff, outputFilestring, "");
 
   // Setup k-mer length
   mer_dna::k(header.key_len() / 2);

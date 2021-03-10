@@ -8,7 +8,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(JELLYFISH_PKG REQUIRED IMPORTED_TARGET jellyfish-2.0)
 
-find_package( Boost 1.75 COMPONENTS system iostreams REQUIRED )
+find_package( Boost 1.71 COMPONENTS system iostreams REQUIRED )
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})
 
