@@ -43,7 +43,7 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
   sequence_mers mers(qpp->isCanon());
   const sequence_mers mers_end(qpp->isCanon());
   const float cutoff = qpp->getCutoff();
-  
+
   boostio::filtering_ostream out;
 
   if (qpp->shouldGzip())
@@ -57,7 +57,10 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
   {
     sequence_parser::job j(parser);
     if (j.is_empty())
+    {
+      out.flush();
       break;
+    }
     for (size_t i = 0; i < j->nb_filled; ++i)
     {
       mers = j->data[i].seq;
@@ -89,9 +92,6 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
       }
     }
   }
-  out.flush();
-  ofile.flush();
-  ofile.close();
 }
 
 int main(int argc, char *argv[])
