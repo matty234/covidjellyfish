@@ -42,9 +42,8 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
   sequence_parser parser(4, 100, 1, streams);
   sequence_mers mers(qpp->isCanon());
   const sequence_mers mers_end(qpp->isCanon());
-
   const float cutoff = qpp->getCutoff();
-
+  
   boostio::filtering_ostream out;
 
   if (qpp->shouldGzip())
@@ -90,7 +89,9 @@ void query_from_sequence(PathIterator file_begin, const Database &db, QueryParam
       }
     }
   }
-  //output.close();
+  out.flush();
+  ofile.flush();
+  ofile.close();
 }
 
 int main(int argc, char *argv[])
@@ -102,7 +103,7 @@ int main(int argc, char *argv[])
   }
   else if (argc == 5)
   {
-    givenCutoff = atof(argv[5]);
+    givenCutoff = atof(argv[4]);
   }
   else
   {
@@ -120,7 +121,7 @@ int main(int argc, char *argv[])
     err::die(err::msg() << "Failed to parse header of file '" << argv[2] << "'" << strerror(errno));
 
   // Setup canon and cutoff
-  QueryParameters qp(header.canonical(), givenCutoff, outputFilestring, "");
+  QueryParameters qp(givenCutoff, header.canonical(), outputFilestring, "");
 
   // Setup k-mer length
   mer_dna::k(header.key_len() / 2);
